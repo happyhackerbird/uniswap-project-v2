@@ -5,9 +5,13 @@ import "./BaseSetup.t.sol";
 import {console} from "./utils/Console.sol";
 
 contract SalatswapPairTest is BaseSetup {
-    event Mint(address indexed sender, uint256 deposit1, uint256 deposit2);
     uint initialLiquidity = 10 ether;
     uint minLiquidity = 1000 wei;
+
+    event Mint(address indexed sender, uint256 deposit1, uint256 deposit2);
+    event Burn(address indexed to, uint256 amount1, uint256 amount2);
+
+    event Transfer(address indexed from, address indexed to, uint256 amount);
 
     function setUp() public {
         token1.transfer(address(dex), initialLiquidity);
@@ -28,6 +32,9 @@ contract SalatswapPairTest is BaseSetup {
     function test_mint_MintAfterInitialLiquidity() public {
         vm.expectEmit(true, true, true, true);
         emit Mint(address(user1), 20 ether, 20 ether);
+
+        // vm.expectEmit(true, true, true, true);
+        // emit Transfer(address(0), address(user1), 20 ether);
 
         vm.startPrank(user1);
         token1.transfer(address(dex), 20 ether);
@@ -90,6 +97,38 @@ contract SalatswapPairTest is BaseSetup {
         token2.transfer(address(d2), strongToken);
         d2.mint();
         assertEq(d2.getTotalLiquidity(), weakToken);
+    }
+
+    function test_burn() public {
+        uint oldLiquiditySender = dex.getLiquidity(address(this));
+        uint oldLiquidityDex = dex.getTotalLiquidity();
+        uint oldToken1User = token1.balanceOf(address(user1));
+        uint oldToken2User = token2.balanceOf(address(user1));
+
+        // ensure that some liquidity has been transferred
+        dex.transfer(address(dex), 5 ether);
+        vm.expectEmit(true, true, true, true);
+        emit Burn(address(user1), 5 ether, 5 ether);
+        dex.burn(address(user1));
+
+        assertEq(dex.getLiquidity(address(this)), oldLiquiditySender - 5 ether); // liquidity of sender has been burned
+        assertEq(dex.getTotalLiquidity(), oldLiquidityDex - 5 ether);
+        verifyReserves(oldLiquidityDex - 5 ether, oldLiquidityDex - 5 ether);
+        assertEq(token1.balanceOf(address(user1)), oldToken1User + 5 ether); // tokens have been transferred to a different user
+        assertEq(token2.balanceOf(address(user1)), oldToken2User + 5 ether);
+    }
+
+    function test_revert_burn_NoLiquidity() public {
+        vm.expectRevert("No liquidity to be burnt");
+        dex.burn(address(this));
+    }
+
+    function test_burn_BurnAll() public {
+        dex.transfer(address(dex), initialLiquidity - minLiquidity);
+        dex.burn(address(this));
+        assertEq(dex.getTotalLiquidity(), minLiquidity); // MIN_LIQUIDITY is always in the pool
+        assertEq(dex.getLiquidity(address(this)), 0);
+        verifyReserves(minLiquidity, minLiquidity);
     }
 
     // ---------------------------------------- Helpers -----------------------------------------

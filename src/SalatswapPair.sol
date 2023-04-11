@@ -13,6 +13,7 @@ contract SalatswapPair is ERC20 {
     uint256 constant MIN_LIQUIDITY = 1000;
 
     event Mint(address indexed sender, uint256 deposit1, uint256 deposit2);
+    event Burn(address indexed to, uint256 amount1, uint256 amount2);
 
     constructor(
         address _addr1,
@@ -22,7 +23,7 @@ contract SalatswapPair is ERC20 {
         _token2 = ERC20(_addr2);
     }
 
-    function mint() public {
+    function mint() public returns (uint256 liquidity) {
         // get deposited amounts
         uint256 balance1 = _token1.balanceOf(address(this));
         uint256 balance2 = _token2.balanceOf(address(this));
@@ -30,7 +31,6 @@ contract SalatswapPair is ERC20 {
         uint256 deposit2 = balance2 - _reserve2;
 
         // calculate liquidity
-        uint256 liquidity;
         if (getTotalLiquidity() == 0) {
             // if empty, use geometric means of deposited amounts (not ether amount like v1) // TODO why
             liquidity = prbSqrt(deposit1 * deposit2) - MIN_LIQUIDITY; // see Test PriceManipulationAtInitIsExpensive
@@ -49,6 +49,29 @@ contract SalatswapPair is ERC20 {
         emit Mint(msg.sender, deposit1, deposit2);
     }
 
+    function burn(address to) public {
+        // get the current token reserves
+        // (uint256 balance1, uint256 balance2) = getReserves(); // shouldnt this always be the current reserves ?
+        uint256 balance1 = _token1.balanceOf(address(this));
+        uint256 balance2 = _token2.balanceOf(address(this));
+
+        // get the amount of liquidity to burn
+        uint256 burnLP = balanceOf[address(this)];
+        require(burnLP > 0, "No liquidity to be burnt");
+        uint tokenAmount1 = (burnLP * balance1) / getTotalLiquidity();
+        uint tokenAmount2 = (burnLP * balance2) / getTotalLiquidity();
+
+        // burn liquidity & update reserves
+        _burn(address(this), burnLP);
+        require(_token1.transfer(to, tokenAmount1));
+        require(_token2.transfer(to, tokenAmount2));
+        balance1 = _token1.balanceOf(address(this));
+        balance2 = _token2.balanceOf(address(this));
+        _update(balance1, balance2);
+        emit Burn(to, tokenAmount1, tokenAmount2);
+    }
+
+    // ---------------------------------------- Helpers -----------------------------------------
     function getReserves() public view returns (uint256, uint256) {
         return (_reserve1, _reserve2);
     }
