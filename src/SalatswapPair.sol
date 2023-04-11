@@ -37,8 +37,8 @@ contract SalatswapPair is ERC20 {
             _mint(address(0), MIN_LIQUIDITY);
         } else {
             // get the minimum to disincentivize depositing unbalanced ratios
-            uint a = (deposit1 / _reserve1) * getTotalLiquidity();
-            uint b = (deposit2 / _reserve2) * getTotalLiquidity();
+            uint a = (deposit1 * getTotalLiquidity()) / _reserve1;
+            uint b = (deposit2 * getTotalLiquidity()) / _reserve2;
             liquidity = a < b ? a : b;
         }
         require(liquidity > 0, "Liquidity provided is too low");

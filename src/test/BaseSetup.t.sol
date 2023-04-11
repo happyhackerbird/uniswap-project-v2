@@ -8,7 +8,7 @@ import {Utilities} from "./utils/Utilities.sol";
 import {MyToken} from "../MyToken.sol";
 import {SalatswapPair} from "../SalatswapPair.sol";
 
-contract BaseSetup is DSTest {
+abstract contract BaseSetup is DSTest {
     Vm internal immutable vm = Vm(HEVM_ADDRESS);
     Utilities internal utils;
     address payable[] internal users;
