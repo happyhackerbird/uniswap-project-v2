@@ -128,7 +128,76 @@ contract SalatswapPairTest is BaseSetup {
         dex.burn(address(this));
         assertEq(dex.getTotalLiquidity(), minLiquidity); // MIN_LIQUIDITY is always in the pool
         assertEq(dex.getLiquidity(address(this)), 0);
-        verifyReserves(minLiquidity, minLiquidity);
+        verifyReserves(minLiquidity, minLiquidity); // cannot achieve zero reserve
+    }
+
+    function test_revert_BurnZero() public {
+        vm.expectRevert("No liquidity to be burnt");
+        dex.burn(address(this));
+    }
+
+    function test_revert_BurnBeforeMint() public {
+        SalatswapPair d = new SalatswapPair(address(token1), address(token2));
+        vm.expectRevert("No liquidity to be burnt");
+        d.burn(address(this));
+    }
+
+    function test_burn_DifferentRatioSameUser() public {
+        token1.transfer(address(dex), 5 ether); // <=== in total we have put in 15 ether worth of tokens
+        token2.transfer(address(dex), 1 ether);
+        dex.mint();
+        uint oldLiquidityUser = dex.getLiquidity(address(this));
+        uint oldToken1User = token1.balanceOf(address(this));
+        (uint256 r1, uint256 r2) = dex.getReserves();
+        dex.transfer(address(dex), oldLiquidityUser); // this burns all the liquidity in the pool
+        dex.burn(address(this));
+
+        assertEq(dex.getLiquidity(address(this)), 0);
+        verifyReserves(1364, minLiquidity); // we make a loss of 364 wei
+        uint returned = ((token1.balanceOf(address(this)) - oldToken1User));
+        assertApproxEqRel(returned, 15 ether, 1e2); // <=== here get back almost all 15 ether (99%)
+    }
+
+    function test_burn_DifferentRatioAndUser() public {
+        // same as above but with a different user to demonstrate how the liquidity is distributed in this case
+        vm.startPrank(user1);
+        token1.transfer(address(dex), 5 ether); // <=== here put in 5 ether worth of tokens
+        token2.transfer(address(dex), 1 ether);
+        dex.mint(); // <=== mint 1 LP
+
+        uint oldLiquidityUser = dex.getLiquidity(address(user1));
+        uint oldToken1User = token1.balanceOf(address(user1));
+
+        dex.transfer(address(dex), oldLiquidityUser); // <=== and then burn all 1 LP of the user
+        dex.burn(address(user1));
+        vm.stopPrank();
+
+        assertEq(dex.getLiquidity(address(user1)), 0);
+        uint returned = (token1.balanceOf(address(user1)) - oldToken1User);
+        assertApproxEqRel(returned, 5 ether, 8e17); // <=== here they get back only about 20% of what we put in
+        assertEq(returned / 1 ether, 1); // which is about 1 ether
+
+        uint lossOtherUser = 5 ether - returned;
+        verifyReserves(10 ether + lossOtherUser, 10 ether);
+
+        // now we show that this loss is instead distributed to the other user (who provided the first liquidity)
+        uint oldToken1FirstUser = token1.balanceOf(address(this));
+        uint oldToken2FirstUser = token2.balanceOf(address(this));
+        dex.transfer(address(dex), initialLiquidity - minLiquidity);
+        dex.burn(address(this));
+
+        assertEq(dex.getLiquidity(address(this)), 0);
+        uint lossFirstUser = 364 wei;
+        verifyReserves(minLiquidity + lossFirstUser, minLiquidity);
+        returned = (token1.balanceOf(address(this)) - oldToken1FirstUser);
+        assertEq(
+            returned,
+            10 ether + lossOtherUser - lossFirstUser - minLiquidity // <=== this user gets the tokens lost to the other user!
+        );
+        assertEq(
+            token2.balanceOf(address(this)) - oldToken2FirstUser,
+            10 ether - minLiquidity
+        );
     }
 
     // ---------------------------------------- Helpers -----------------------------------------

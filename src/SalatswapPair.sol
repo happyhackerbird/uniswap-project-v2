@@ -3,6 +3,7 @@ pragma solidity >=0.8.0;
 
 import "solmate/tokens/ERC20.sol";
 import "@prb/math/Common.sol";
+import {console} from "./test/utils/Console.sol";
 
 contract SalatswapPair is ERC20 {
     ERC20 private _token1;
@@ -33,7 +34,7 @@ contract SalatswapPair is ERC20 {
         // calculate liquidity
         if (getTotalLiquidity() == 0) {
             // if empty, use geometric means of deposited amounts (not ether amount like v1) // TODO why
-            liquidity = prbSqrt(deposit1 * deposit2) - MIN_LIQUIDITY; // see Test PriceManipulationAtInitIsExpensive
+            liquidity = prbSqrt(deposit1 * deposit2) - MIN_LIQUIDITY; // see Test UnbalancedRatioAtInit
             _mint(address(0), MIN_LIQUIDITY);
         } else {
             // get the minimum to disincentivize depositing unbalanced ratios
