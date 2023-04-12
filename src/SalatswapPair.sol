@@ -65,8 +65,8 @@ contract SalatswapPair is ERC20 {
 
         // burn liquidity & update reserves
         _burn(address(this), burnLP);
-        require(_token1.transfer(to, tokenAmount1));
-        require(_token2.transfer(to, tokenAmount2));
+        _safeTransfer(_token1, to, tokenAmount1);
+        _safeTransfer(_token2, to, tokenAmount2);
         balance1 = _token1.balanceOf(address(this));
         balance2 = _token2.balanceOf(address(this));
         _update(balance1, balance2);
@@ -89,8 +89,8 @@ contract SalatswapPair is ERC20 {
 
         // update reserves & transfer amounts
         _update(balance1, balance2);
-        if (_amount1 > 0) require(_token1.transfer(to, _amount1));
-        if (_amount2 > 0) require(_token2.transfer(to, _amount2));
+        if (_amount1 > 0) _safeTransfer(_token1, to, _amount1);
+        if (_amount2 > 0) _safeTransfer(_token2, to, _amount2);
         emit Swap(to, _amount1, _amount2);
     }
 
@@ -110,5 +110,16 @@ contract SalatswapPair is ERC20 {
     function _update(uint256 balance1, uint256 balance2) private {
         _reserve1 = balance1;
         _reserve2 = balance2;
+    }
+
+    function _safeTransfer(ERC20 token, address to, uint256 value) private {
+        address tokenAddress = address(token);
+        (bool success, bytes memory data) = tokenAddress.call(
+            abi.encodeWithSignature("transfer(address,uint256)", to, value)
+        );
+        require(
+            success && (data.length == 0 || abi.decode(data, (bool))),
+            "Transfer failed"
+        );
     }
 }

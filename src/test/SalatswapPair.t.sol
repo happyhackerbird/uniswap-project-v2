@@ -10,6 +10,7 @@ contract SalatswapPairTest is BaseSetup {
 
     event Mint(address indexed sender, uint256 deposit1, uint256 deposit2);
     event Burn(address indexed to, uint256 amount1, uint256 amount2);
+    event Swap(address indexed to, uint256 amount1, uint256 amount2);
 
     event Transfer(address indexed from, address indexed to, uint256 amount);
 
