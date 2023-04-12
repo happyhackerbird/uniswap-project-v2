@@ -15,6 +15,7 @@ contract SalatswapPair is ERC20 {
 
     event Mint(address indexed sender, uint256 deposit1, uint256 deposit2);
     event Burn(address indexed to, uint256 amount1, uint256 amount2);
+    event Swap(address indexed to, uint256 amount1, uint256 amount2);
 
     constructor(
         address _addr1,
@@ -70,6 +71,27 @@ contract SalatswapPair is ERC20 {
         balance2 = _token2.balanceOf(address(this));
         _update(balance1, balance2);
         emit Burn(to, tokenAmount1, tokenAmount2);
+    }
+
+    function swap(uint256 _amount1, uint256 _amount2, address to) public {
+        // ensure validity of specified output amounts
+        require(_amount1 > 0 && _amount2 > 0, "Output amount insufficient");
+        require(
+            _amount1 <= _reserve1 && _amount2 <= _reserve2,
+            "Liquidity insufficient"
+        );
+
+        // calculate token balances
+        uint256 balance1 = _token1.balanceOf(address(this)) - _amount1;
+        uint256 balance2 = _token2.balanceOf(address(this)) - _amount2;
+        // apply constant product formula
+        require(balance1 * balance2 >= _reserve1 * _reserve2, "Invalid trade");
+
+        // update reserves & transfer amounts
+        _update(balance1, balance2);
+        if (_amount1 > 0) require(_token1.transfer(to, _amount1));
+        if (_amount2 > 0) require(_token2.transfer(to, _amount2));
+        emit Swap(to, _amount1, _amount2);
     }
 
     // ---------------------------------------- Helpers -----------------------------------------

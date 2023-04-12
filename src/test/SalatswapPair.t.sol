@@ -153,7 +153,7 @@ contract SalatswapPairTest is BaseSetup {
         dex.burn(address(this));
 
         assertEq(dex.getLiquidity(address(this)), 0);
-        verifyReserves(1364, minLiquidity); // we make a loss of 364 wei
+        verifyReserves(1364, minLiquidity); // we make a loss of 364 wei -- these belong to the pool now
         uint returned = ((token1.balanceOf(address(this)) - oldToken1User));
         assertApproxEqRel(returned, 15 ether, 1e2); // <=== here get back almost all 15 ether (99%)
     }
@@ -188,7 +188,7 @@ contract SalatswapPairTest is BaseSetup {
 
         assertEq(dex.getLiquidity(address(this)), 0);
         uint lossFirstUser = 364 wei;
-        verifyReserves(minLiquidity + lossFirstUser, minLiquidity);
+        verifyReserves(minLiquidity + lossFirstUser, minLiquidity); // some wei are again lost to the pool
         returned = (token1.balanceOf(address(this)) - oldToken1FirstUser);
         assertEq(
             returned,
