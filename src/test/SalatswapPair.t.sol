@@ -149,12 +149,12 @@ contract SalatswapPairTest is BaseSetup {
         );
     }
 
-    function test_revert_BurnZero() public {
+    function test_revert_burn_BurnZero() public {
         vm.expectRevert("No liquidity to be burnt");
         dex.burn(address(this));
     }
 
-    function test_revert_BurnBeforeMint() public {
+    function test_revert_burn_BurnBeforeMint() public {
         SalatswapPair d = new SalatswapPair(address(token1), address(token2));
         vm.expectRevert("No liquidity to be burnt");
         d.burn(address(this));
@@ -216,6 +216,47 @@ contract SalatswapPairTest is BaseSetup {
             token2.balanceOf(address(this)) - oldToken2FirstUser,
             10 ether - minLiquidity
         );
+    }
+
+    function test_swap_Basic() public {
+        uint256 amountOut = 0.9 ether;
+        token1.transfer(address(dex), 1 ether);
+
+        vm.expectEmit(true, true, true, true);
+        emit Swap(address(this), 0, 0.9 ether);
+        dex.swap(0, amountOut, address(this));
+
+        assertEq(token1.balanceOf(address(this)), firstTokenBalance - 1 ether);
+        assertEq(
+            token2.balanceOf(address(this)),
+            firstTokenBalance + amountOut
+        );
+        assertEq(dex.getTotalLiquidity(), initialLiquidity);
+        verifyReserves(11 ether, 9.1 * 1 ether);
+    }
+
+    function test_swap_BasicWithSlippage() public {
+        uint256 amountOut = 5 ether;
+        token2.transfer(address(dex), 10 ether); // we need to account for a lot of slippage bc the reserve is not that big
+
+        vm.expectEmit(true, true, true, true);
+        emit Swap(address(this), 5 ether, 0);
+        dex.swap(amountOut, 0, address(this));
+
+        assertEq(token1.balanceOf(address(this)), firstTokenBalance + 5 ether);
+        assertEq(token2.balanceOf(address(this)), firstTokenBalance - 10 ether);
+        assertEq(dex.getTotalLiquidity(), initialLiquidity);
+        verifyReserves(5 ether, 20 ether);
+    }
+
+    function test_revert_swap_ZeroOutput() public {
+        vm.expectRevert("Output amount insufficient");
+        dex.swap(0, 0, address(this));
+    }
+
+    function test_revert_swap_LiquidityInsufficient() public {
+        vm.expectRevert("Liquidity insufficient");
+        dex.swap(11 ether, 9 ether, address(this));
     }
 
     // ---------------------------------------- Helpers -----------------------------------------
