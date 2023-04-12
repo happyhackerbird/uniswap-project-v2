@@ -75,7 +75,7 @@ contract SalatswapPair is ERC20 {
 
     function swap(uint256 _amount1, uint256 _amount2, address to) public {
         // ensure validity of specified output amounts
-        require(_amount1 > 0 && _amount2 > 0, "Output amount insufficient");
+        require(_amount1 > 0 || _amount2 > 0, "Output amount insufficient");
         require(
             _amount1 <= _reserve1 && _amount2 <= _reserve2,
             "Liquidity insufficient"

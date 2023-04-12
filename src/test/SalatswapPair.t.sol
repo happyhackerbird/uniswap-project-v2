@@ -7,6 +7,7 @@ import {console} from "./utils/Console.sol";
 contract SalatswapPairTest is BaseSetup {
     uint initialLiquidity = 10 ether;
     uint minLiquidity = 1000 wei;
+    uint firstTokenBalance = 4000 ether - initialLiquidity;
 
     event Mint(address indexed sender, uint256 deposit1, uint256 deposit2);
     event Burn(address indexed to, uint256 amount1, uint256 amount2);
@@ -28,6 +29,8 @@ contract SalatswapPairTest is BaseSetup {
         );
         verifyReserves(initialLiquidity, initialLiquidity);
         assertEq(dex.getTotalLiquidity(), initialLiquidity);
+        assertEq(token1.balanceOf(address(this)), firstTokenBalance);
+        assertEq(token2.balanceOf(address(this)), firstTokenBalance);
     }
 
     function test_mint_MintAfterInitialLiquidity() public {
@@ -41,11 +44,13 @@ contract SalatswapPairTest is BaseSetup {
         token1.transfer(address(dex), 20 ether);
         token2.transfer(address(dex), 20 ether);
         dex.mint();
-        assertEq(dex.getLiquidity(address(user1)), 20 ether);
         vm.stopPrank();
 
+        assertEq(dex.getLiquidity(address(user1)), 20 ether);
         verifyReserves(30 ether, 30 ether);
         assertEq(dex.getTotalLiquidity(), 30 ether);
+        assertEq(token1.balanceOf(address(user1)), 1000 ether - 20 ether);
+        assertEq(token2.balanceOf(address(user1)), 1000 ether - 20 ether);
     }
 
     function test_mint_DisincentivizeUnbalancedRatios() public {
@@ -57,9 +62,9 @@ contract SalatswapPairTest is BaseSetup {
         token1.transfer(address(dex), 18 ether);
         token2.transfer(address(dex), 22 ether);
         dex.mint();
-        assertEq(dex.getLiquidity(address(user1)), 18 ether); // we will only get 18 ether of liquidity
         vm.stopPrank();
 
+        assertEq(dex.getLiquidity(address(user1)), 18 ether); // we will only get 18 ether of liquidity
         verifyReserves(28 ether, 32 ether);
         assertEq(dex.getTotalLiquidity(), 28 ether);
     }
@@ -100,23 +105,21 @@ contract SalatswapPairTest is BaseSetup {
         assertEq(d2.getTotalLiquidity(), weakToken);
     }
 
-    function test_burn() public {
+    function test_burn_Basic() public {
         uint oldLiquiditySender = dex.getLiquidity(address(this));
         uint oldLiquidityDex = dex.getTotalLiquidity();
-        uint oldToken1User = token1.balanceOf(address(user1));
-        uint oldToken2User = token2.balanceOf(address(user1));
 
         // ensure that some liquidity has been transferred
         dex.transfer(address(dex), 5 ether);
         vm.expectEmit(true, true, true, true);
-        emit Burn(address(user1), 5 ether, 5 ether);
-        dex.burn(address(user1));
+        emit Burn(address(this), 5 ether, 5 ether);
+        dex.burn(address(this));
 
         assertEq(dex.getLiquidity(address(this)), oldLiquiditySender - 5 ether); // liquidity of sender has been burned
         assertEq(dex.getTotalLiquidity(), oldLiquidityDex - 5 ether);
         verifyReserves(oldLiquidityDex - 5 ether, oldLiquidityDex - 5 ether);
-        assertEq(token1.balanceOf(address(user1)), oldToken1User + 5 ether); // tokens have been transferred to a different user
-        assertEq(token2.balanceOf(address(user1)), oldToken2User + 5 ether);
+        assertEq(token1.balanceOf(address(this)), firstTokenBalance + 5 ether); // basic scenario where tokens are transferred to same user
+        assertEq(token2.balanceOf(address(this)), firstTokenBalance + 5 ether);
     }
 
     function test_revert_burn_NoLiquidity() public {
@@ -126,10 +129,24 @@ contract SalatswapPairTest is BaseSetup {
 
     function test_burn_BurnAll() public {
         dex.transfer(address(dex), initialLiquidity - minLiquidity);
+        vm.expectEmit(true, true, true, true);
+        emit Burn(
+            address(this),
+            initialLiquidity - minLiquidity,
+            initialLiquidity - minLiquidity
+        );
         dex.burn(address(this));
         assertEq(dex.getTotalLiquidity(), minLiquidity); // MIN_LIQUIDITY is always in the pool
         assertEq(dex.getLiquidity(address(this)), 0);
-        verifyReserves(minLiquidity, minLiquidity); // cannot achieve zero reserve
+        verifyReserves(minLiquidity, minLiquidity); // cannot achieve zero reserve by burning
+        assertEq(
+            token1.balanceOf(address(this)),
+            firstTokenBalance + initialLiquidity - minLiquidity
+        );
+        assertEq(
+            token2.balanceOf(address(this)),
+            firstTokenBalance + initialLiquidity - minLiquidity
+        );
     }
 
     function test_revert_BurnZero() public {
@@ -182,8 +199,8 @@ contract SalatswapPairTest is BaseSetup {
         verifyReserves(10 ether + lossOtherUser, 10 ether);
 
         // now we show that this loss is instead distributed to the other user (who provided the first liquidity)
-        uint oldToken1FirstUser = token1.balanceOf(address(this));
-        uint oldToken2FirstUser = token2.balanceOf(address(this));
+        uint oldToken1FirstUser = firstTokenBalance;
+        uint oldToken2FirstUser = firstTokenBalance;
         dex.transfer(address(dex), initialLiquidity - minLiquidity);
         dex.burn(address(this));
 
