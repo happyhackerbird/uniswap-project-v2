@@ -249,6 +249,24 @@ contract SalatswapPairTest is BaseSetup {
         verifyReserves(5 ether, 20 ether);
     }
 
+    function test_swap_Bidirectional() public {
+        token1.transfer(address(dex), 1 ether); // internally calculates 10.93* 9.15 ether  > 11*10 = 110 ether
+        vm.expectEmit(true, true, true, true);
+        emit Swap(address(this), 0.07 ether, 0.85 ether);
+        dex.swap(0.07 ether, 0.85 ether, address(this));
+
+        assertEq(
+            token1.balanceOf(address(this)),
+            firstTokenBalance - 1 ether + 0.07 ether
+        );
+        assertEq(
+            token2.balanceOf(address(this)),
+            firstTokenBalance + 0.85 ether
+        );
+        assertEq(dex.getTotalLiquidity(), initialLiquidity);
+        verifyReserves(10.93 ether, 9.15 * 1 ether);
+    }
+
     function test_revert_swap_ZeroOutput() public {
         vm.expectRevert("Output amount insufficient");
         dex.swap(0, 0, address(this));
