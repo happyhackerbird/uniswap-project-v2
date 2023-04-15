@@ -8,8 +8,10 @@ import {console} from "./test/utils/Console.sol";
 contract SalatswapPair is ERC20 {
     ERC20 private _token1;
     ERC20 private _token2;
-    uint256 private _reserve1;
-    uint256 private _reserve2;
+
+    // switch to uint112 type to use UQ112x112.sol
+    uint112 private _reserve1;
+    uint112 private _reserve2;
 
     uint256 constant MIN_LIQUIDITY = 1000;
 
@@ -83,9 +85,13 @@ contract SalatswapPair is ERC20 {
 
         // calculate token balances
         uint256 balance1 = _token1.balanceOf(address(this)) - _amount1;
+        console.log("balance1: %s", balance1);
         uint256 balance2 = _token2.balanceOf(address(this)) - _amount2;
         // apply constant product formula
-        require(balance1 * balance2 >= _reserve1 * _reserve2, "Invalid trade");
+        require(
+            balance1 * balance2 >= uint256(_reserve1) * uint256(_reserve2),
+            "Invalid trade"
+        );
 
         // update reserves & transfer amounts
         _update(balance1, balance2);
@@ -95,7 +101,7 @@ contract SalatswapPair is ERC20 {
     }
 
     // ---------------------------------------- Helpers -----------------------------------------
-    function getReserves() public view returns (uint256, uint256) {
+    function getReserves() public view returns (uint112, uint112) {
         return (_reserve1, _reserve2);
     }
 
@@ -108,8 +114,8 @@ contract SalatswapPair is ERC20 {
     }
 
     function _update(uint256 balance1, uint256 balance2) private {
-        _reserve1 = balance1;
-        _reserve2 = balance2;
+        _reserve1 = uint112(balance1);
+        _reserve2 = uint112(balance2);
     }
 
     function _safeTransfer(ERC20 token, address to, uint256 value) private {
