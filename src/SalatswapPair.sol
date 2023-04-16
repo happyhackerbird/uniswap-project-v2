@@ -5,12 +5,15 @@ import "solmate/tokens/ERC20.sol";
 import "@prb/math/Common.sol";
 import {console} from "./test/utils/Console.sol";
 import {UQ112x112} from "./libraries/UQ112x112.sol";
+import "./interfaces/IERC20.sol";
 
 contract SalatswapPair is ERC20 {
     using UQ112x112 for uint224;
 
-    ERC20 private _token1;
-    ERC20 private _token2;
+    uint256 constant MIN_LIQUIDITY = 1000;
+
+    address public _token1;
+    address public _token2;
 
     // switch to uint112 type to use UQ112x112.sol
     uint112 private _reserve1;
@@ -20,7 +23,6 @@ contract SalatswapPair is ERC20 {
 
     uint256 public price1CumulativeLast;
     uint256 public price2CumulativeLast;
-    uint256 constant MIN_LIQUIDITY = 1000;
 
     event Mint(address indexed sender, uint256 deposit1, uint256 deposit2);
     event Burn(address indexed to, uint256 amount1, uint256 amount2);
@@ -30,14 +32,14 @@ contract SalatswapPair is ERC20 {
         address _addr1,
         address _addr2
     ) ERC20("SalatswapV2 Pair", "LEAF", 18) {
-        _token1 = ERC20(_addr1);
-        _token2 = ERC20(_addr2);
+        _token1 = _addr1;
+        _token2 = _addr2;
     }
 
     function mint() public returns (uint256 liquidity) {
         // get deposited amounts
-        uint256 balance1 = _token1.balanceOf(address(this));
-        uint256 balance2 = _token2.balanceOf(address(this));
+        uint256 balance1 = IERC20(_token1).balanceOf(address(this));
+        uint256 balance2 = IERC20(_token2).balanceOf(address(this));
         uint256 deposit1 = balance1 - _reserve1;
         uint256 deposit2 = balance2 - _reserve2;
 
@@ -63,8 +65,8 @@ contract SalatswapPair is ERC20 {
     function burn(address to) public {
         // get the current token reserves
         // (uint256 balance1, uint256 balance2) = getReserves(); // shouldnt this always be the current reserves ?
-        uint256 balance1 = _token1.balanceOf(address(this));
-        uint256 balance2 = _token2.balanceOf(address(this));
+        uint256 balance1 = IERC20(_token1).balanceOf(address(this));
+        uint256 balance2 = IERC20(_token2).balanceOf(address(this));
 
         // get the amount of liquidity to burn
         uint256 burnLP = balanceOf[address(this)];
@@ -76,8 +78,8 @@ contract SalatswapPair is ERC20 {
         _burn(address(this), burnLP);
         _safeTransfer(_token1, to, tokenAmount1);
         _safeTransfer(_token2, to, tokenAmount2);
-        balance1 = _token1.balanceOf(address(this));
-        balance2 = _token2.balanceOf(address(this));
+        balance1 = IERC20(_token1).balanceOf(address(this));
+        balance2 = IERC20(_token2).balanceOf(address(this));
         _update(balance1, balance2);
         emit Burn(to, tokenAmount1, tokenAmount2);
     }
@@ -91,9 +93,8 @@ contract SalatswapPair is ERC20 {
         );
 
         // calculate token balances
-        uint256 balance1 = _token1.balanceOf(address(this)) - _amount1;
-        console.log("balance1: %s", balance1);
-        uint256 balance2 = _token2.balanceOf(address(this)) - _amount2;
+        uint256 balance1 = IERC20(_token1).balanceOf(address(this)) - _amount1;
+        uint256 balance2 = IERC20(_token2).balanceOf(address(this)) - _amount2;
         // apply constant product formula
         require(
             balance1 * balance2 >= uint256(_reserve1) * uint256(_reserve2),
@@ -151,8 +152,11 @@ contract SalatswapPair is ERC20 {
         _reserve2 = uint112(balance2);
     }
 
-    function _safeTransfer(ERC20 token, address to, uint256 value) private {
-        address tokenAddress = address(token);
+    function _safeTransfer(
+        address tokenAddress,
+        address to,
+        uint256 value
+    ) private {
         (bool success, bytes memory data) = tokenAddress.call(
             abi.encodeWithSignature("transfer(address,uint256)", to, value)
         );
