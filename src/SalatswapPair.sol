@@ -12,8 +12,8 @@ contract SalatswapPair is ERC20 {
 
     uint256 constant MIN_LIQUIDITY = 1000;
 
-    address public _token1;
-    address public _token2;
+    address public token1;
+    address public token2;
 
     // switch to uint112 type to use UQ112x112.sol
     uint112 private _reserve1;
@@ -32,16 +32,17 @@ contract SalatswapPair is ERC20 {
         address _addr1,
         address _addr2
     ) ERC20("SalatswapV2 Pair", "LEAF", 18) {
-        _token1 = _addr1;
-        _token2 = _addr2;
+        token1 = _addr1;
+        token2 = _addr2;
     }
 
     function mint() public returns (uint256 liquidity) {
         // get deposited amounts
-        uint256 balance1 = IERC20(_token1).balanceOf(address(this));
-        uint256 balance2 = IERC20(_token2).balanceOf(address(this));
-        uint256 deposit1 = balance1 - _reserve1;
-        uint256 deposit2 = balance2 - _reserve2;
+        uint256 balance1 = IERC20(token1).balanceOf(address(this));
+        uint256 balance2 = IERC20(token2).balanceOf(address(this));
+        (uint112 reserve1, uint112 reserve2) = getReserves();
+        uint256 deposit1 = balance1 - reserve1;
+        uint256 deposit2 = balance2 - reserve2;
 
         // calculate liquidity
         if (getTotalLiquidity() == 0) {
@@ -50,23 +51,23 @@ contract SalatswapPair is ERC20 {
             _mint(address(0), MIN_LIQUIDITY);
         } else {
             // get the minimum to disincentivize depositing unbalanced ratios
-            uint a = (deposit1 * getTotalLiquidity()) / _reserve1;
-            uint b = (deposit2 * getTotalLiquidity()) / _reserve2;
+            uint a = (deposit1 * getTotalLiquidity()) / reserve1;
+            uint b = (deposit2 * getTotalLiquidity()) / reserve2;
             liquidity = a < b ? a : b;
         }
         require(liquidity > 0, "Liquidity provided is too low");
 
         // mint liquidity & update reserves
         _mint(msg.sender, liquidity);
-        _update(balance1, balance2);
+        _update(balance1, balance2, reserve1, reserve2);
         emit Mint(msg.sender, deposit1, deposit2);
     }
 
     function burn(address to) public {
         // get the current token reserves
         // (uint256 balance1, uint256 balance2) = getReserves(); // shouldnt this always be the current reserves ?
-        uint256 balance1 = IERC20(_token1).balanceOf(address(this));
-        uint256 balance2 = IERC20(_token2).balanceOf(address(this));
+        uint256 balance1 = IERC20(token1).balanceOf(address(this));
+        uint256 balance2 = IERC20(token2).balanceOf(address(this));
 
         // get the amount of liquidity to burn
         uint256 burnLP = balanceOf[address(this)];
@@ -76,35 +77,38 @@ contract SalatswapPair is ERC20 {
 
         // burn liquidity & update reserves
         _burn(address(this), burnLP);
-        _safeTransfer(_token1, to, tokenAmount1);
-        _safeTransfer(_token2, to, tokenAmount2);
-        balance1 = IERC20(_token1).balanceOf(address(this));
-        balance2 = IERC20(_token2).balanceOf(address(this));
-        _update(balance1, balance2);
+        _safeTransfer(token1, to, tokenAmount1);
+        _safeTransfer(token2, to, tokenAmount2);
+        balance1 = IERC20(token1).balanceOf(address(this));
+        balance2 = IERC20(token2).balanceOf(address(this));
+        (uint112 reserve1, uint112 reserve2) = getReserves();
+        _update(balance1, balance2, reserve1, reserve2);
         emit Burn(to, tokenAmount1, tokenAmount2);
     }
 
     function swap(uint256 _amount1, uint256 _amount2, address to) public {
+        (uint112 reserve1, uint112 reserve2) = getReserves();
+
         // ensure validity of specified output amounts
         require(_amount1 > 0 || _amount2 > 0, "Output amount insufficient");
         require(
-            _amount1 <= _reserve1 && _amount2 <= _reserve2,
+            _amount1 <= reserve1 && _amount2 <= reserve2,
             "Liquidity insufficient"
         );
 
         // calculate token balances
-        uint256 balance1 = IERC20(_token1).balanceOf(address(this)) - _amount1;
-        uint256 balance2 = IERC20(_token2).balanceOf(address(this)) - _amount2;
+        uint256 balance1 = IERC20(token1).balanceOf(address(this)) - _amount1;
+        uint256 balance2 = IERC20(token2).balanceOf(address(this)) - _amount2;
         // apply constant product formula
         require(
-            balance1 * balance2 >= uint256(_reserve1) * uint256(_reserve2),
+            balance1 * balance2 >= reserve1 * uint256(reserve2),
             "Invalid trade"
         );
 
         // update reserves & transfer amounts
-        _update(balance1, balance2);
-        if (_amount1 > 0) _safeTransfer(_token1, to, _amount1);
-        if (_amount2 > 0) _safeTransfer(_token2, to, _amount2);
+        _update(balance1, balance2, reserve1, reserve2);
+        if (_amount1 > 0) _safeTransfer(token1, to, _amount1);
+        if (_amount2 > 0) _safeTransfer(token2, to, _amount2);
         emit Swap(to, _amount1, _amount2);
     }
 
@@ -121,7 +125,12 @@ contract SalatswapPair is ERC20 {
         return balanceOf[account];
     }
 
-    function _update(uint256 balance1, uint256 balance2) private {
+    function _update(
+        uint256 balance1,
+        uint256 balance2,
+        uint112 reserve1,
+        uint112 reserve2
+    ) private {
         // prevent overflow of conversion to uint112
         require(
             balance1 <= type(uint112).max && balance2 <= type(uint112).max,
@@ -135,15 +144,15 @@ contract SalatswapPair is ERC20 {
             uint32 timeElapsed = blockTimestamp - blockTimestampLast;
 
             // if so, update the cost accumulators
-            if (timeElapsed > 0 && _reserve1 > 0 && _reserve2 > 0) {
+            if (timeElapsed > 0 && reserve1 > 0 && reserve2 > 0) {
                 // each cost accumulator is updated with the product of marginal exchange rate and time
                 // marginal price is the price without slippage and fees
                 // then to get the average price, read them out at two different points in time and divide by the time difference
                 price1CumulativeLast +=
-                    uint(UQ112x112.encode(_reserve2).uqdiv(_reserve1)) *
+                    uint(UQ112x112.encode(reserve2).uqdiv(reserve1)) *
                     timeElapsed;
                 price2CumulativeLast +=
-                    uint(UQ112x112.encode(_reserve1).uqdiv(_reserve2)) *
+                    uint(UQ112x112.encode(reserve1).uqdiv(reserve2)) *
                     timeElapsed;
             }
             blockTimestampLast = blockTimestamp;
