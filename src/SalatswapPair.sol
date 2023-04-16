@@ -18,22 +18,22 @@ contract SalatswapPair is ERC20 {
     // switch to uint112 type to use UQ112x112.sol
     uint112 private _reserve1;
     uint112 private _reserve2;
-    uint32 private blockTimestampLast; // last time an exchange occurred
+    uint32 private _blockTimestampLast; // last time an exchange occurred
     // --- these three variables are all in one storage slot
 
     uint256 public price1CumulativeLast;
     uint256 public price2CumulativeLast;
 
-    event Mint(address indexed sender, uint256 deposit1, uint256 deposit2);
-    event Burn(address indexed to, uint256 amount1, uint256 amount2);
-    event Swap(address indexed to, uint256 amount1, uint256 amount2);
+    event Minted(address indexed sender, uint256 deposit1, uint256 deposit2);
+    event Burned(address indexed to, uint256 amount1, uint256 amount2);
+    event Swapped(address indexed to, uint256 amount1, uint256 amount2);
 
     constructor(
-        address _addr1,
-        address _addr2
+        address addr1,
+        address addr2
     ) ERC20("SalatswapV2 Pair", "LEAF", 18) {
-        token1 = _addr1;
-        token2 = _addr2;
+        token1 = addr1;
+        token2 = addr2;
     }
 
     function mint() public returns (uint256 liquidity) {
@@ -60,7 +60,7 @@ contract SalatswapPair is ERC20 {
         // mint liquidity & update reserves
         _mint(msg.sender, liquidity);
         _update(balance1, balance2, reserve1, reserve2);
-        emit Mint(msg.sender, deposit1, deposit2);
+        emit Minted(msg.sender, deposit1, deposit2);
     }
 
     function burn(address to) public {
@@ -83,22 +83,22 @@ contract SalatswapPair is ERC20 {
         balance2 = IERC20(token2).balanceOf(address(this));
         (uint112 reserve1, uint112 reserve2) = getReserves();
         _update(balance1, balance2, reserve1, reserve2);
-        emit Burn(to, tokenAmount1, tokenAmount2);
+        emit Burned(to, tokenAmount1, tokenAmount2);
     }
 
-    function swap(uint256 _amount1, uint256 _amount2, address to) public {
+    function swap(uint256 amount1, uint256 amount2, address to) public {
         (uint112 reserve1, uint112 reserve2) = getReserves();
 
         // ensure validity of specified output amounts
-        require(_amount1 > 0 || _amount2 > 0, "Output amount insufficient");
+        require(amount1 > 0 || amount2 > 0, "Output amount insufficient");
         require(
-            _amount1 <= reserve1 && _amount2 <= reserve2,
+            amount1 <= reserve1 && amount2 <= reserve2,
             "Liquidity insufficient"
         );
 
         // calculate token balances
-        uint256 balance1 = IERC20(token1).balanceOf(address(this)) - _amount1;
-        uint256 balance2 = IERC20(token2).balanceOf(address(this)) - _amount2;
+        uint256 balance1 = IERC20(token1).balanceOf(address(this)) - amount1;
+        uint256 balance2 = IERC20(token2).balanceOf(address(this)) - amount2;
         // apply constant product formula
         require(
             balance1 * balance2 >= reserve1 * uint256(reserve2),
@@ -107,9 +107,9 @@ contract SalatswapPair is ERC20 {
 
         // update reserves & transfer amounts
         _update(balance1, balance2, reserve1, reserve2);
-        if (_amount1 > 0) _safeTransfer(token1, to, _amount1);
-        if (_amount2 > 0) _safeTransfer(token2, to, _amount2);
-        emit Swap(to, _amount1, _amount2);
+        if (amount1 > 0) _safeTransfer(token1, to, amount1);
+        if (amount2 > 0) _safeTransfer(token2, to, amount2);
+        emit Swapped(to, amount1, amount2);
     }
 
     // ---------------------------------------- Helpers -----------------------------------------
@@ -141,7 +141,7 @@ contract SalatswapPair is ERC20 {
         unchecked {
             // determine if its the first exchange transaction in a block
             uint32 blockTimestamp = uint32(block.timestamp);
-            uint32 timeElapsed = blockTimestamp - blockTimestampLast;
+            uint32 timeElapsed = blockTimestamp - _blockTimestampLast;
 
             // if so, update the cost accumulators
             if (timeElapsed > 0 && reserve1 > 0 && reserve2 > 0) {
@@ -155,7 +155,7 @@ contract SalatswapPair is ERC20 {
                     uint(UQ112x112.encode(reserve1).uqdiv(reserve2)) *
                     timeElapsed;
             }
-            blockTimestampLast = blockTimestamp;
+            _blockTimestampLast = blockTimestamp;
         }
         _reserve1 = uint112(balance1);
         _reserve2 = uint112(balance2);
