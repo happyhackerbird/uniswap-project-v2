@@ -4,15 +4,22 @@ pragma solidity >=0.8.0;
 import "solmate/tokens/ERC20.sol";
 import "@prb/math/Common.sol";
 import {console} from "./test/utils/Console.sol";
+import {UQ112x112} from "./libraries/UQ112x112.sol";
 
 contract SalatswapPair is ERC20 {
+    using UQ112x112 for uint224;
+
     ERC20 private _token1;
     ERC20 private _token2;
 
     // switch to uint112 type to use UQ112x112.sol
     uint112 private _reserve1;
     uint112 private _reserve2;
+    uint32 private blockTimestampLast; // last time an exchange occurred
+    // --- these three variables are all in one storage slot
 
+    uint256 public price1CumulativeLast;
+    uint256 public price2CumulativeLast;
     uint256 constant MIN_LIQUIDITY = 1000;
 
     event Mint(address indexed sender, uint256 deposit1, uint256 deposit2);
@@ -114,8 +121,25 @@ contract SalatswapPair is ERC20 {
     }
 
     function _update(uint256 balance1, uint256 balance2) private {
+        // determine if its the first exchange transaction in a block
+        uint32 blockTimestamp = uint32(block.timestamp % 2 ** 32);
+        uint32 timeElapsed = blockTimestamp - blockTimestampLast; // overflow is desired
+
+        // if so, update the cost accumulators
+        if (timeElapsed > 0 && _reserve1 > 0 && _reserve2 > 0) {
+            // each cost accumulator is updated with the product of marginal exchange rate and time
+            // marginal price is the price without slippage and fees
+            // then to get the average price, read them out at two different points in time and divide by the time difference
+            price1CumulativeLast +=
+                uint(UQ112x112.encode(_reserve2).uqdiv(_reserve1)) *
+                timeElapsed;
+            price2CumulativeLast +=
+                uint(UQ112x112.encode(_reserve1).uqdiv(_reserve2)) *
+                timeElapsed;
+        }
         _reserve1 = uint112(balance1);
         _reserve2 = uint112(balance2);
+        blockTimestampLast = blockTimestamp;
     }
 
     function _safeTransfer(ERC20 token, address to, uint256 value) private {

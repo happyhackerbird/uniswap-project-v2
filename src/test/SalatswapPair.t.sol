@@ -220,6 +220,7 @@ contract SalatswapPairTest is BaseSetup {
 
     function test_swap_Basic() public {
         uint256 amountOut = 0.9 ether;
+
         token1.transfer(address(dex), 1 ether);
 
         vm.expectEmit(true, true, true, true);
