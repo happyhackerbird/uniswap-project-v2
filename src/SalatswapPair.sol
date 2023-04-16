@@ -121,25 +121,34 @@ contract SalatswapPair is ERC20 {
     }
 
     function _update(uint256 balance1, uint256 balance2) private {
-        // determine if its the first exchange transaction in a block
-        uint32 blockTimestamp = uint32(block.timestamp % 2 ** 32);
-        uint32 timeElapsed = blockTimestamp - blockTimestampLast; // overflow is desired
+        // prevent overflow of conversion to uint112
+        require(
+            balance1 <= type(uint112).max && balance2 <= type(uint112).max,
+            "Balance overflows"
+        );
 
-        // if so, update the cost accumulators
-        if (timeElapsed > 0 && _reserve1 > 0 && _reserve2 > 0) {
-            // each cost accumulator is updated with the product of marginal exchange rate and time
-            // marginal price is the price without slippage and fees
-            // then to get the average price, read them out at two different points in time and divide by the time difference
-            price1CumulativeLast +=
-                uint(UQ112x112.encode(_reserve2).uqdiv(_reserve1)) *
-                timeElapsed;
-            price2CumulativeLast +=
-                uint(UQ112x112.encode(_reserve1).uqdiv(_reserve2)) *
-                timeElapsed;
+        // unchecked block because we don't want overflows to revert the execution
+        unchecked {
+            // determine if its the first exchange transaction in a block
+            uint32 blockTimestamp = uint32(block.timestamp);
+            uint32 timeElapsed = blockTimestamp - blockTimestampLast;
+
+            // if so, update the cost accumulators
+            if (timeElapsed > 0 && _reserve1 > 0 && _reserve2 > 0) {
+                // each cost accumulator is updated with the product of marginal exchange rate and time
+                // marginal price is the price without slippage and fees
+                // then to get the average price, read them out at two different points in time and divide by the time difference
+                price1CumulativeLast +=
+                    uint(UQ112x112.encode(_reserve2).uqdiv(_reserve1)) *
+                    timeElapsed;
+                price2CumulativeLast +=
+                    uint(UQ112x112.encode(_reserve1).uqdiv(_reserve2)) *
+                    timeElapsed;
+            }
+            blockTimestampLast = blockTimestamp;
         }
         _reserve1 = uint112(balance1);
         _reserve2 = uint112(balance2);
-        blockTimestampLast = blockTimestamp;
     }
 
     function _safeTransfer(ERC20 token, address to, uint256 value) private {
