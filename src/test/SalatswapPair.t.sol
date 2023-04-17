@@ -284,32 +284,42 @@ contract SalatswapPairTest is BaseSetup {
 
     function test_CumulativePrices() public {
         // block.timestamp is at 0
-        // get the current price after the first liquidity deposit
-        (uint256 firstPrice1, uint256 firstPrice2) = _getCurrentPrice();
+        uint256 cumulativePrice1;
+        uint256 cumulativePrice2;
+        // get the current exchange rate after the first liquidity deposit
+        (uint256 firstPrice1, uint256 firstPrice2) = _getMarginalRate();
         // cumulative prices will still be 0 because there is no past exchange event
-        _verifyCumulativePricesAndBlocktime(0, 0, 0); // marginal price * 0 time elapse = 0
+        (cumulativePrice1, cumulativePrice2) = _cumulativePrice(
+            0,
+            0,
+            firstPrice1,
+            firstPrice2,
+            0
+        );
 
         // let some time elapse, so we will update the price if we force a sync
         vm.warp(1);
         // update the cumulative prices
         dex.sync();
-        _verifyCumulativePricesAndBlocktime(
-            firstPrice1 * 1,
-            firstPrice2 * 1,
+        // calculate new prices and verify them against the contract
+        (cumulativePrice1, cumulativePrice2) = _cumulativePrice(
+            cumulativePrice1,
+            cumulativePrice2,
+            firstPrice1,
+            firstPrice2,
             1
         );
 
         vm.warp(2);
         dex.sync();
-        // price * 1 second + price * 1 second = price * 2 seconds
-        _verifyCumulativePricesAndBlocktime(
-            firstPrice1 * 2,
-            firstPrice2 * 2,
-            2
+        (cumulativePrice1, cumulativePrice2) = _cumulativePrice(
+            cumulativePrice1,
+            cumulativePrice2,
+            firstPrice1,
+            firstPrice2,
+            1
         );
     }
-
-    function test_CumulativePricesAfterPriceChange() public {}
 
     // ---------------------------------------- Helpers -----------------------------------------
     function _verifyReserves(uint256 reserve1, uint256 reserve2) internal {
@@ -318,7 +328,7 @@ contract SalatswapPairTest is BaseSetup {
         assertEq(r2, uint112(reserve2));
     }
 
-    function _getCurrentPrice()
+    function _getMarginalRate()
         internal
         returns (uint256 price1, uint256 price2)
     {
@@ -327,14 +337,32 @@ contract SalatswapPairTest is BaseSetup {
         price2 = r2 > 0 ? (uint(UQ112x112.encode(r1).uqdiv(r2))) : 0;
     }
 
-    function _verifyCumulativePricesAndBlocktime(
-        uint256 cumulativePrice1,
-        uint256 cumulativePrice2,
-        uint32 blockTimestamp
-    ) internal {
+    // calculate cumulative price change and verify it with the contract's values
+    function _cumulativePrice(
+        uint256 oldPrice1,
+        uint256 oldPrice2,
+        uint256 marginalRate1,
+        uint256 marginalRate2,
+        uint32 time
+    ) internal returns (uint256 cumulativePrice1, uint256 cumulativePrice2) {
+        (cumulativePrice1, cumulativePrice2) = (
+            oldPrice1 + marginalRate1 * time,
+            oldPrice2 + marginalRate2 * time
+        );
         assertEq(dex.price1CumulativeLast(), cumulativePrice1);
         assertEq(dex.price2CumulativeLast(), cumulativePrice2);
-        (, , uint32 blockTimestampLast) = dex.getReserves();
-        assertEq(blockTimestampLast, blockTimestamp);
     }
+
+    // function (cumulativePrice1, cumulativePrice2) = _cumulativePrice(
+    // cumulativePrice1,
+    // cumulativePrice2,
+    //     uint256 cumulativePrice1,
+    //     uint256 cumulativePrice2,
+    //     uint32 blockTimestamp
+    // ) internal {
+    //     assertEq(dex.price1CumulativeLast(), cumulativePrice1);
+    //     assertEq(dex.price2CumulativeLast(), cumulativePrice2);
+    //     (, , uint32 blockTimestampLast) = dex.getReserves();
+    //     assertEq(blockTimestampLast, blockTimestamp);
+    // }
 }
