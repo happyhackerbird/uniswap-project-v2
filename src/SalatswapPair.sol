@@ -27,6 +27,7 @@ contract SalatswapPair is ERC20 {
     event Minted(address indexed sender, uint256 deposit1, uint256 deposit2);
     event Burned(address indexed to, uint256 amount1, uint256 amount2);
     event Swapped(address indexed to, uint256 amount1, uint256 amount2);
+    event Synced(uint112 reserve1, uint112 reserve2);
 
     constructor(
         address addr1,
@@ -40,7 +41,7 @@ contract SalatswapPair is ERC20 {
         // get deposited amounts
         uint256 balance1 = IERC20(token1).balanceOf(address(this));
         uint256 balance2 = IERC20(token2).balanceOf(address(this));
-        (uint112 reserve1, uint112 reserve2) = getReserves();
+        (uint112 reserve1, uint112 reserve2, ) = getReserves(); // is the third value read and then dropped - in this case save gas by assigning it and passing to the _update to save another storage read
         uint256 deposit1 = balance1 - reserve1;
         uint256 deposit2 = balance2 - reserve2;
 
@@ -81,13 +82,13 @@ contract SalatswapPair is ERC20 {
         _safeTransfer(token2, to, tokenAmount2);
         balance1 = IERC20(token1).balanceOf(address(this));
         balance2 = IERC20(token2).balanceOf(address(this));
-        (uint112 reserve1, uint112 reserve2) = getReserves();
+        (uint112 reserve1, uint112 reserve2, ) = getReserves();
         _update(balance1, balance2, reserve1, reserve2);
         emit Burned(to, tokenAmount1, tokenAmount2);
     }
 
     function swap(uint256 amount1, uint256 amount2, address to) public {
-        (uint112 reserve1, uint112 reserve2) = getReserves();
+        (uint112 reserve1, uint112 reserve2, ) = getReserves();
 
         // ensure validity of specified output amounts
         require(amount1 > 0 || amount2 > 0, "Output amount insufficient");
@@ -112,9 +113,19 @@ contract SalatswapPair is ERC20 {
         emit Swapped(to, amount1, amount2);
     }
 
+    // force reserves to match current token balances
+    function sync() public {
+        _update(
+            IERC20(token1).balanceOf(address(this)),
+            IERC20(token2).balanceOf(address(this)),
+            _reserve1,
+            _reserve2
+        );
+    }
+
     // ---------------------------------------- Helpers -----------------------------------------
-    function getReserves() public view returns (uint112, uint112) {
-        return (_reserve1, _reserve2);
+    function getReserves() public view returns (uint112, uint112, uint32) {
+        return (_reserve1, _reserve2, _blockTimestampLast);
     }
 
     function getTotalLiquidity() public view returns (uint256) {
@@ -157,8 +168,11 @@ contract SalatswapPair is ERC20 {
             }
             _blockTimestampLast = blockTimestamp;
         }
-        _reserve1 = uint112(balance1);
-        _reserve2 = uint112(balance2);
+        uint112 r1 = uint112(balance1);
+        uint112 r2 = uint112(balance2);
+        _reserve1 = r1;
+        _reserve2 = r2;
+        emit Synced(r1, r2);
     }
 
     function _safeTransfer(
