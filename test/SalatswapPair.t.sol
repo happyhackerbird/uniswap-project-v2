@@ -193,4 +193,15 @@ contract SalatswapPairTest is BaseSetup {
         dex.transfer(address(dex), 3 ether);
         dex.burn(address(this));
     }
+
+    function test_ReserveStorage() public {
+        // bytes32 storage_token1 = vm.load(address(dex), bytes32(uint256(6)));
+        // bytes32 storage_token2 = vm.load(address(dex), bytes32(uint256(7)));
+        bytes32 storage_Reserves = vm.load(address(dex), bytes32(uint256(8)));
+        assertEq(
+            storage_Reserves,
+            hex"000000010000000000008ac7230489e800000000000000008ac7230489e80000"
+            // timestamp, reserve2, reserve1 (little endian format)
+        );
+    }
 }

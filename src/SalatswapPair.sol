@@ -48,7 +48,7 @@ contract SalatswapPair is ERC20 {
         // calculate liquidity
         if (getTotalLiquidity() == 0) {
             // if empty, use geometric means of deposited amounts (not ether amount like v1) // TODO why
-            liquidity = prbSqrt(deposit1 * deposit2) - MIN_LIQUIDITY; // see Test UnbalancedRatioAtInit
+            liquidity = prbSqrt(deposit1 * deposit2) - MIN_LIQUIDITY; // see Test MinLiquidty
             _mint(address(0), MIN_LIQUIDITY);
         } else {
             // get the minimum to disincentivize depositing unbalanced ratios
@@ -66,7 +66,6 @@ contract SalatswapPair is ERC20 {
 
     function burn(address to) public {
         // get the current token reserves
-        // (uint256 balance1, uint256 balance2) = getReserves(); // shouldnt this always be the current reserves ?
         uint256 balance1 = IERC20(token1).balanceOf(address(this));
         uint256 balance2 = IERC20(token2).balanceOf(address(this));
 
@@ -77,7 +76,7 @@ contract SalatswapPair is ERC20 {
         uint tokenAmount2 = (burnLP * balance2) / getTotalLiquidity();
 
         // burn liquidity & update reserves
-        _burn(address(this), burnLP);
+        _burn(address(this), burnLP); // Prevent reentrancy here by Checks Effects Interactions Pattern
         _safeTransfer(token1, to, tokenAmount1);
         _safeTransfer(token2, to, tokenAmount2);
         balance1 = IERC20(token1).balanceOf(address(this));
@@ -98,8 +97,8 @@ contract SalatswapPair is ERC20 {
         );
 
         // calculate token balances
-        uint256 balance1 = IERC20(token1).balanceOf(address(this)) - amount1;
-        uint256 balance2 = IERC20(token2).balanceOf(address(this)) - amount2;
+        uint256 balance1 = IERC20(token1).balanceOf(address(this)) - amount1; // a malicious token contract could give false balances here, enabling reentrancy attacks
+        uint256 balance2 = IERC20(token2).balanceOf(address(this)) - amount2; // since you could send a balance b1 such that: b1 - amount1 = balance1 >= reserve1 = oldBalance1 - oldAmount1
         // apply constant product formula
         require(
             balance1 * balance2 >= reserve1 * uint256(reserve2),
@@ -107,7 +106,7 @@ contract SalatswapPair is ERC20 {
         );
 
         // update reserves & transfer amounts
-        _update(balance1, balance2, reserve1, reserve2);
+        _update(balance1, balance2, reserve1, reserve2); // reentrancy is still possible, it updates its own reserve values but still has to read from external token contracts
         if (amount1 > 0) _safeTransfer(token1, to, amount1);
         if (amount2 > 0) _safeTransfer(token2, to, amount2);
         emit Swapped(to, amount1, amount2);
@@ -158,7 +157,7 @@ contract SalatswapPair is ERC20 {
             if (timeElapsed > 0 && reserve1 > 0 && reserve2 > 0) {
                 // each cost accumulator is updated with the product of marginal exchange rate and time
                 // marginal price is the price without slippage and fees
-                // then to get the average price, read them out at two different points in time and divide by the time difference
+                // then to get the average price, read them out at two different points in time and divide by the time difference (see test)
                 price1CumulativeLast +=
                     uint256(UQ112x112.encode(reserve2).uqdiv(reserve1)) *
                     timeElapsed;
@@ -175,6 +174,7 @@ contract SalatswapPair is ERC20 {
         emit Synced(r1, r2);
     }
 
+    // use a low level call so that we don't have to rely on the token contract to correctly return a bool for "transfer" method
     function _safeTransfer(
         address tokenAddress,
         address to,
