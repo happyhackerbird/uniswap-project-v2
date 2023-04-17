@@ -3,8 +3,11 @@ pragma solidity >=0.8.0;
 
 import "./BaseSetup.t.sol";
 import {console} from "./utils/Console.sol";
+import {UQ112x112} from "src/libraries/UQ112x112.sol";
 
 contract SalatswapPairTest is BaseSetup {
+    using UQ112x112 for uint224;
+
     uint initialLiquidity = 10 ether;
     uint minLiquidity = 1000 wei;
     uint firstTokenBalance = 4000 ether - initialLiquidity;
@@ -16,6 +19,7 @@ contract SalatswapPairTest is BaseSetup {
     event Transfer(address indexed from, address indexed to, uint256 amount);
 
     function setUp() public {
+        vm.warp(0); // reset block timestamp
         token1.transfer(address(dex), initialLiquidity);
         token2.transfer(address(dex), initialLiquidity);
         dex.mint();
@@ -278,10 +282,59 @@ contract SalatswapPairTest is BaseSetup {
         dex.swap(11 ether, 9 ether, address(this));
     }
 
+    function test_CumulativePrices() public {
+        // block.timestamp is at 0
+        // get the current price after the first liquidity deposit
+        (uint256 firstPrice1, uint256 firstPrice2) = _getCurrentPrice();
+        // cumulative prices will still be 0 because there is no past exchange event
+        _verifyCumulativePricesAndBlocktime(0, 0, 0); // marginal price * 0 time elapse = 0
+
+        // let some time elapse, so we will update the price if we force a sync
+        vm.warp(1);
+        // update the cumulative prices
+        dex.sync();
+        _verifyCumulativePricesAndBlocktime(
+            firstPrice1 * 1,
+            firstPrice2 * 1,
+            1
+        );
+
+        vm.warp(2);
+        dex.sync();
+        // price * 1 second + price * 1 second = price * 2 seconds
+        _verifyCumulativePricesAndBlocktime(
+            firstPrice1 * 2,
+            firstPrice2 * 2,
+            2
+        );
+    }
+
+    function test_CumulativePricesAfterPriceChange() public {}
+
     // ---------------------------------------- Helpers -----------------------------------------
-    function _verifyReserves(uint256 _reserve1, uint256 _reserve2) internal {
-        (uint256 r1, uint256 r2) = dex.getReserves();
-        assertEq(r1, _reserve1);
-        assertEq(r2, _reserve2);
+    function _verifyReserves(uint256 reserve1, uint256 reserve2) internal {
+        (uint112 r1, uint112 r2, ) = dex.getReserves();
+        assertEq(r1, uint112(reserve1));
+        assertEq(r2, uint112(reserve2));
+    }
+
+    function _getCurrentPrice()
+        internal
+        returns (uint256 price1, uint256 price2)
+    {
+        (uint112 r1, uint112 r2, ) = dex.getReserves();
+        price1 = r1 > 0 ? (uint(UQ112x112.encode(r2).uqdiv(r1))) : 0;
+        price2 = r2 > 0 ? (uint(UQ112x112.encode(r1).uqdiv(r2))) : 0;
+    }
+
+    function _verifyCumulativePricesAndBlocktime(
+        uint256 cumulativePrice1,
+        uint256 cumulativePrice2,
+        uint32 blockTimestamp
+    ) internal {
+        assertEq(dex.price1CumulativeLast(), cumulativePrice1);
+        assertEq(dex.price2CumulativeLast(), cumulativePrice2);
+        (, , uint32 blockTimestampLast) = dex.getReserves();
+        assertEq(blockTimestampLast, blockTimestamp);
     }
 }
