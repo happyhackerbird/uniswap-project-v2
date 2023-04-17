@@ -160,10 +160,10 @@ contract SalatswapPair is ERC20 {
                 // marginal price is the price without slippage and fees
                 // then to get the average price, read them out at two different points in time and divide by the time difference
                 price1CumulativeLast +=
-                    uint(UQ112x112.encode(reserve2).uqdiv(reserve1)) *
+                    uint256(UQ112x112.encode(reserve2).uqdiv(reserve1)) *
                     timeElapsed;
                 price2CumulativeLast +=
-                    uint(UQ112x112.encode(reserve1).uqdiv(reserve2)) *
+                    uint256(UQ112x112.encode(reserve1).uqdiv(reserve2)) *
                     timeElapsed;
             }
             _blockTimestampLast = blockTimestamp;

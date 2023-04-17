@@ -3,10 +3,13 @@ pragma solidity >=0.8.0;
 
 import {TestsRatiosAndPrices} from "./RatiosAndPrices.t.sol";
 import {UQ112x112} from "src/libraries/UQ112x112.sol";
+import {console} from "./utils/Console.sol";
 
 // Test the price oracle
 contract PriceOracleTest is TestsRatiosAndPrices {
     using UQ112x112 for uint224;
+
+    uint[] internal _pricePoints; // holds prices at time points t3, t5, t7, t8
 
     function test_CumulativePrices() public {
         // block.timestamp is at 0
@@ -47,6 +50,30 @@ contract PriceOracleTest is TestsRatiosAndPrices {
         );
     }
 
+    function test_TradeWithCurrentPrice() public {
+        // we get a wrong price here -- this should be a price of 1 each at the start
+        (uint256 priceToken2, uint256 priceToken1) = _getMarginalRate();
+        uint out = 2 ether;
+        uint price = out * priceToken2;
+        token1.transfer(address(dex), out);
+        // dex.swap(0, price, address(this));
+    }
+
+    function test_GetAveragePrice() public {
+        // get the average price of token 1
+
+        test_CumulativePricesAfterPriceChange();
+
+        // to do so, take the difference in cumulative prices at to points in time and divide by the time between them
+        uint256 averagePricet5t3 = (_pricePoints[1] - _pricePoints[0]) / 2;
+        uint256 averagePricet7t5 = (_pricePoints[2] - _pricePoints[1]) / 2;
+        uint256 averagePricet8t7 = (_pricePoints[3] - _pricePoints[2]) / 2;
+
+        uint256 averagePrice = (averagePricet5t3 +
+            averagePricet7t5 +
+            averagePricet8t7) / 3;
+    }
+
     function test_CumulativePricesAfterPriceChange() public {
         uint256 cumulativePrice1;
         uint256 cumulativePrice2;
@@ -72,6 +99,7 @@ contract PriceOracleTest is TestsRatiosAndPrices {
             firstPrice2,
             3
         );
+        _pricePoints.push(cumulativePrice1);
 
         // get the price with the new reserves
         (uint256 secondPrice1, uint256 secondPrice2) = _getMarginalRate();
@@ -98,6 +126,7 @@ contract PriceOracleTest is TestsRatiosAndPrices {
             secondPrice2,
             1
         );
+        _pricePoints.push(cumulativePrice1);
 
         (uint256 thirdPrice1, uint256 thirdPrice2) = _getMarginalRate();
         vm.warp(6);
@@ -121,6 +150,7 @@ contract PriceOracleTest is TestsRatiosAndPrices {
             thirdPrice2,
             1
         );
+        _pricePoints.push(cumulativePrice1);
 
         (uint256 fourthPrice1, uint256 fourthPrice2) = _getMarginalRate();
         vm.warp(8);
@@ -132,6 +162,7 @@ contract PriceOracleTest is TestsRatiosAndPrices {
             fourthPrice2,
             1
         );
+        _pricePoints.push(cumulativePrice1);
     }
 
     // ---------------------------------------- Helpers -----------------------------------------

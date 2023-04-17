@@ -12,6 +12,7 @@ contract SalatswapPairTest is BaseSetup {
     event Minted(address indexed sender, uint256 deposit1, uint256 deposit2);
     event Burned(address indexed to, uint256 amount1, uint256 amount2);
     event Swapped(address indexed to, uint256 amount1, uint256 amount2);
+    event Synced(uint112 reserve1, uint112 reserve2);
 
     function setUp() public override {
         BaseSetup.setUp();
@@ -178,5 +179,18 @@ contract SalatswapPairTest is BaseSetup {
     function test_revert_swap_LiquidityInsufficient() public {
         vm.expectRevert("Liquidity insufficient");
         dex.swap(11 ether, 9 ether, address(this));
+    }
+
+    function test_sync() public {
+        vm.expectEmit(true, true, true, true);
+        emit Synced(11 ether, 9.1 ether);
+        token1.transfer(address(dex), 1 ether);
+        dex.swap(0, 0.9 ether, address(this));
+        _verifyReserves(11 ether, 9.1 ether);
+
+        vm.expectEmit(true, true, true, true);
+        emit Synced(7.7 ether, 6.37 ether);
+        dex.transfer(address(dex), 3 ether);
+        dex.burn(address(this));
     }
 }
