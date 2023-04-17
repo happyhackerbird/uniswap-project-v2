@@ -3,7 +3,7 @@ pragma solidity >=0.8.0;
 
 import "solmate/tokens/ERC20.sol";
 import "@prb/math/Common.sol";
-import {console} from "./test/utils/Console.sol";
+import {console} from "test/utils/Console.sol";
 import {UQ112x112} from "./libraries/UQ112x112.sol";
 import "./interfaces/IERC20.sol";
 

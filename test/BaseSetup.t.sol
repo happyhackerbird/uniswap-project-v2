@@ -6,8 +6,8 @@ import {StdAssertions} from "lib/prb-math/lib/forge-std/src/StdAssertions.sol";
 import {Vm} from "forge-std/Vm.sol";
 import {Utilities} from "./utils/Utilities.sol";
 
-import {MyToken} from "../MyToken.sol";
-import {SalatswapPair} from "../SalatswapPair.sol";
+import {MyToken} from "src/MyToken.sol";
+import {SalatswapPair} from "src/SalatswapPair.sol";
 
 abstract contract BaseSetup is DSTest, StdAssertions {
     Vm internal immutable vm = Vm(HEVM_ADDRESS);
@@ -22,8 +22,9 @@ abstract contract BaseSetup is DSTest, StdAssertions {
     SalatswapPair public dex;
     MyToken public token1;
     MyToken public token2;
+    uint minLiquidity = 1000 wei;
 
-    constructor() {
+    function setUp() public virtual {
         utils = new Utilities();
         users = utils.createUsers(5);
         user1 = users[0];
@@ -51,5 +52,21 @@ abstract contract BaseSetup is DSTest, StdAssertions {
         // token.approve(address(dex), 5000 ether);
         // vm.prank(user2);
         // token.approve(address(dex), 5000 ether);
+    }
+
+    function _initializeDex(
+        SalatswapPair d,
+        uint256 initialLiquidity1,
+        uint256 initialLiquidity2
+    ) internal {
+        token1.transfer(address(d), initialLiquidity1);
+        token2.transfer(address(d), initialLiquidity2);
+        dex.mint();
+    }
+
+    function _verifyReserves(uint256 reserve1, uint256 reserve2) internal {
+        (uint112 r1, uint112 r2, ) = dex.getReserves();
+        assertEq(r1, uint112(reserve1));
+        assertEq(r2, uint112(reserve2));
     }
 }
