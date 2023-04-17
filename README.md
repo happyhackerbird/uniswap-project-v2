@@ -5,7 +5,7 @@ Salatswap (Saladswap) is my Uniswap V2 implementation that I'm building to learn
 - [x] Adding and removing liquidity 
 - [x] Token swapping
 - [x] Reentrancy attack protection
-- [ ] Price oracles 
+- [ ] Price oracles (see branch)
 - [ ] Factory contract 
 - [ ] Router and library contracts 
 - [ ] Protocol fees 
