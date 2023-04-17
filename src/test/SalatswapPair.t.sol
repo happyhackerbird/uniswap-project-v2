@@ -321,6 +321,93 @@ contract SalatswapPairTest is BaseSetup {
         );
     }
 
+    function test_CumulativePricesAfterPriceChange() public {
+        uint256 cumulativePrice1;
+        uint256 cumulativePrice2;
+        (uint256 firstPrice1, uint256 firstPrice2) = _getMarginalRate();
+        (cumulativePrice1, cumulativePrice2) = _cumulativePrice(
+            0,
+            0,
+            firstPrice1,
+            firstPrice2,
+            0
+        );
+
+        // ----------------- Trading -----------------
+        // let transaction be in a new block
+        vm.warp(3);
+        token1.transfer(address(dex), 1 ether);
+        // within swap, another price point based on the old reserves is added
+        dex.swap(0, 0.9 ether, address(this));
+        (cumulativePrice1, cumulativePrice2) = _cumulativePrice(
+            cumulativePrice1,
+            cumulativePrice2,
+            firstPrice1,
+            firstPrice2,
+            3
+        );
+
+        // get the price with the new reserves
+        (uint256 secondPrice1, uint256 secondPrice2) = _getMarginalRate();
+        // let some time elapse, so we will update the price if we force a sync
+        vm.warp(4);
+        dex.sync();
+        (cumulativePrice1, cumulativePrice2) = _cumulativePrice(
+            cumulativePrice1,
+            cumulativePrice2,
+            secondPrice1,
+            secondPrice2,
+            1
+        );
+
+        // ----------------- Minting -----------------
+        vm.warp(5);
+        token1.transfer(address(dex), 5 ether);
+        token2.transfer(address(dex), 5 ether);
+        dex.mint();
+        (cumulativePrice1, cumulativePrice2) = _cumulativePrice(
+            cumulativePrice1,
+            cumulativePrice2,
+            secondPrice1,
+            secondPrice2,
+            1
+        );
+
+        (uint256 thirdPrice1, uint256 thirdPrice2) = _getMarginalRate();
+        vm.warp(6);
+        dex.sync();
+        (cumulativePrice1, cumulativePrice2) = _cumulativePrice(
+            cumulativePrice1,
+            cumulativePrice2,
+            thirdPrice1,
+            thirdPrice2,
+            1
+        );
+
+        // ----------------- Burning -----------------
+        vm.warp(7);
+        dex.transfer(address(dex), 10 ether);
+        dex.burn(address(this));
+        (cumulativePrice1, cumulativePrice2) = _cumulativePrice(
+            cumulativePrice1,
+            cumulativePrice2,
+            thirdPrice1,
+            thirdPrice2,
+            1
+        );
+
+        (uint256 fourthPrice1, uint256 fourthPrice2) = _getMarginalRate();
+        vm.warp(8);
+        dex.sync();
+        (cumulativePrice1, cumulativePrice2) = _cumulativePrice(
+            cumulativePrice1,
+            cumulativePrice2,
+            fourthPrice1,
+            fourthPrice2,
+            1
+        );
+    }
+
     // ---------------------------------------- Helpers -----------------------------------------
     function _verifyReserves(uint256 reserve1, uint256 reserve2) internal {
         (uint112 r1, uint112 r2, ) = dex.getReserves();
@@ -352,17 +439,4 @@ contract SalatswapPairTest is BaseSetup {
         assertEq(dex.price1CumulativeLast(), cumulativePrice1);
         assertEq(dex.price2CumulativeLast(), cumulativePrice2);
     }
-
-    // function (cumulativePrice1, cumulativePrice2) = _cumulativePrice(
-    // cumulativePrice1,
-    // cumulativePrice2,
-    //     uint256 cumulativePrice1,
-    //     uint256 cumulativePrice2,
-    //     uint32 blockTimestamp
-    // ) internal {
-    //     assertEq(dex.price1CumulativeLast(), cumulativePrice1);
-    //     assertEq(dex.price2CumulativeLast(), cumulativePrice2);
-    //     (, , uint32 blockTimestampLast) = dex.getReserves();
-    //     assertEq(blockTimestampLast, blockTimestamp);
-    // }
 }
