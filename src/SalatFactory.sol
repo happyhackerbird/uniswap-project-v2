@@ -11,8 +11,14 @@ contract SalatFactory {
         uint
     );
 
+    // stores tokens mapped to pair contract
     mapping(address => mapping(address => address)) public pairs;
+    // store all pairs created by the factory (cannot iterator over mapping)
     address[] public allPairs;
+
+    function allPairsLength() external view returns (uint) {
+        return allPairs.length;
+    }
 
     function createPair(
         address token1,
@@ -33,18 +39,14 @@ contract SalatFactory {
         /* deploy pair contract with CREATE2 opcode
         CREATE2 is an opcode that allows to generate an address deterministically
         (as opposed to CREATE which depends on the sender's nonce)
-        CREATE2 requires the bytecode and salt (sequence of bytes provided by the sender) */
+        CREATE2 requires the bytecode and salt (sequence of bytes provided by the sender) 
+        Newer versions of Solidity now support salted contract creation with CREATE2, so we don't have to get the creation bytecode manually */
 
-        // retrieve the creation bytecode, the code of the constructor that is run upon contract creation and generates the runtime code
-        bytes memory bytecode = type(SalatswapPair).creationCode;
-        // get a unique salt and therefore address for the token pair
+        // get a unique salt for the token pair
         bytes32 salt = keccak256(abi.encodePacked(t1, t2));
-        //
-        assembly {
-            pair := create2(0, add(bytecode, 32), mload(bytecode), salt)
-        }
-        // initialize the pair contract's token addresses
-        SalatswapPair(pair).initialize(t1, t2);
+
+        SalatswapPair pairContract = new SalatswapPair{salt: salt}(t1, t2);
+        pair = address(pairContract);
 
         // store the pair address & emit event
         pairs[t1][t2] = pair;
