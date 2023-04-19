@@ -25,7 +25,7 @@ contract SalatFactory {
         address token2
     ) public returns (address pair) {
         // tokens cannot be identical
-        require(token1 != token2, "SalatFactory: IDENTICAL_ADDRESSES");
+        require(token1 != token2, "SalatFactory: IDENTICAL_TOKENS");
 
         // sort by address to check for duplicates
         (address t1, address t2) = token1 < token2
