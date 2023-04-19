@@ -37,6 +37,15 @@ contract SalatswapPair is ERC20 {
         token2 = addr2;
     }
 
+    function initialize(address addr1, address addr2) external {
+        require(
+            token1 == address(0) && token2 == address(0),
+            "Already initialized"
+        );
+        token1 = addr1;
+        token2 = addr2;
+    }
+
     function mint() public returns (uint256 liquidity) {
         // get deposited amounts
         uint256 balance1 = IERC20(token1).balanceOf(address(this));
