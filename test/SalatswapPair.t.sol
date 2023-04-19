@@ -49,11 +49,11 @@ contract SalatswapPairTest is BaseSetup {
     }
 
     function test_revert_mint_Underflow() public {
-        // // with underflow if L < MIN_LIQUIDITY
+        // with underflow if L < MIN_LIQUIDITY
         // SalatswapPair d = new SalatswapPair(address(token1), address(token2));
         // token1.transfer(address(d), 100 wei);
         // token2.transfer(address(d), 100 wei);
-        // vm.expectRevert();
+        // vm.expectRevert("");
         // d.mint();
     }
 
