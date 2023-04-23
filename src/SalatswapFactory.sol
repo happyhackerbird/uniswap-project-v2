@@ -25,16 +25,16 @@ contract SalatswapFactory {
         address token2
     ) public returns (address pair) {
         // tokens cannot be identical
-        require(token1 != token2, "SalatswapFactory : IDENTICAL_TOKENS");
+        require(token1 != token2, "SalatswapFactory: IDENTICAL_TOKENS");
 
         // sort by address to check for duplicates
         (address t1, address t2) = token1 < token2
             ? (token1, token2)
             : (token2, token1);
-        require(pairs[t1][t2] == address(0), "SalatswapFactory : PAIR_EXISTS");
+        require(pairs[t1][t2] == address(0), "SalatswapFactory: PAIR_EXISTS");
 
         // cannot have a zero address
-        require(t1 != address(0), "SalatswapFactory : ZERO_ADDRESS");
+        require(t1 != address(0), "SalatswapFactory: ZERO_ADDRESS");
 
         /* deploy pair contract with CREATE2 opcode
         CREATE2 is an opcode that allows to generate an address deterministically
