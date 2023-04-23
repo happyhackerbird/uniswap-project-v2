@@ -32,4 +32,17 @@ contract SalatswapLibraryTest is DSTest {
         );
         assertEq(pairAddress, factory.pairs(address(tokenA), address(tokenB)));
     }
+
+    function test_getReserves() public {
+        tokenA.transfer(address(pair), 4 ether);
+        tokenB.transfer(address(pair), 5 ether);
+        pair.mint();
+        (uint256 reserveA, uint256 reserveB) = SalatswapLibrary.getReserves(
+            address(factory),
+            address(tokenA),
+            address(tokenB)
+        );
+        assertEq(reserveA, 4 ether); // reserves will be sorted according the token address
+        assertEq(reserveB, 5 ether);
+    }
 }

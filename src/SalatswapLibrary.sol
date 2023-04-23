@@ -30,10 +30,28 @@ library SalatswapLibrary {
         pair = SalatswapFactory(factoryAddress).pairs(tokenA, tokenB);
     }
 
+    // get the reserves of a pair and sort them
+    function getReserves(
+        address factoryAddress,
+        address tokenA,
+        address tokenB
+    ) internal view returns (uint reserveA, uint reserveB) {
+        (address token1, ) = sortTokens(tokenA, tokenB);
+        // fetch the reserves
+        (uint reserve1, uint reserve2, ) = SalatswapPair(
+            pairFor(factoryAddress, tokenA, tokenB)
+        ).getReserves();
+        // return the reserves according to how we sorted the tokens
+        (reserveA, reserveB) = tokenA == token1
+            ? (reserve1, reserve2)
+            : (reserve2, reserve1);
+    }
+
+    // sort the tokens by address
     function sortTokens(
         address tokenA,
         address tokenB
-    ) internal pure returns (address token1, address token2) {
+    ) internal pure returns (address, address) {
         return tokenA < tokenB ? (tokenA, tokenB) : (tokenB, tokenA);
     }
 }
