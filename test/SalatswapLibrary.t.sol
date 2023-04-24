@@ -45,4 +45,15 @@ contract SalatswapLibraryTest is DSTest {
         assertEq(reserveA, 4 ether); // reserves will be sorted according the token address
         assertEq(reserveB, 5 ether);
     }
+
+    function test_quote() public {
+        uint quote = SalatswapLibrary.quote(1.5 ether, 2 ether, 2 ether);
+        assertEq(quote, 1.5 ether);
+
+        quote = SalatswapLibrary.quote(1 ether, 1 ether, 2 ether);
+        assertEq(quote, 2 ether);
+
+        quote = SalatswapLibrary.quote(1 ether, 2 ether, 1 ether);
+        assertEq(quote, 0.5 ether);
+    }
 }

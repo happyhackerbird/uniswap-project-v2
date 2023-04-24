@@ -20,7 +20,7 @@ contract SalatswapRouter {
         uint256 amountAMin, // amount without which transaction cannot take place (specify 0 to skip)
         uint256 amountBMin,
         address to
-    ) public returns (uint256 amountA, uint256 amountB, uint256 liquidity) {
+    ) external returns (uint256 amountA, uint256 amountB, uint256 liquidity) {
         // calculate amounts to be deposited that will maintain ratio between reserves
         (amountA, amountB) = _getLiquidity(
             tokenA,
@@ -104,6 +104,38 @@ contract SalatswapRouter {
                 (amountA, amountB) = (amountAOptimal, amountBDesired);
             }
         }
+    }
+
+    function removeLiquidity(
+        address tokenA,
+        address tokenB,
+        uint256 liquidity,
+        uint256 amountAMin,
+        uint256 amountBMin,
+        address to
+    ) public returns (uint256 amountA, uint256 amountB) {
+        address pair = SalatswapLibrary.pairFor(
+            address(factory),
+            tokenA,
+            tokenB
+        );
+        // transfer liquidity tokens to the exchange
+        SalatswapPair(pair).transferFrom(msg.sender, pair, liquidity);
+        // burn the liquidity
+        (uint amount1, uint amount2) = SalatswapPair(pair).burn(to);
+        // sort the amounts by the token address to be able to compare them
+        (address token1, ) = SalatswapLibrary.sortTokens(tokenA, tokenB);
+        (amountA, amountB) = tokenA == token1
+            ? (amount1, amount2)
+            : (amount2, amount1);
+        require(
+            amountA >= amountAMin,
+            "UniswapV2Router: INSUFFICIENT_A_AMOUNT"
+        );
+        require(
+            amountB >= amountBMin,
+            "UniswapV2Router: INSUFFICIENT_B_AMOUNT"
+        );
     }
 
     function _safeTransferFrom(

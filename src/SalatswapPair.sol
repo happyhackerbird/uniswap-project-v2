@@ -73,7 +73,9 @@ contract SalatswapPair is ERC20 {
         emit Minted(to, deposit1, deposit2);
     }
 
-    function burn(address to) public {
+    function burn(
+        address to
+    ) public returns (uint tokenAmount1, uint tokenAmount2) {
         // get the current token reserves
         uint256 balance1 = IERC20(token1).balanceOf(address(this));
         uint256 balance2 = IERC20(token2).balanceOf(address(this));
@@ -81,8 +83,8 @@ contract SalatswapPair is ERC20 {
         // get the amount of liquidity to burn
         uint256 burnLP = balanceOf[address(this)];
         require(burnLP > 0, "No liquidity to be burnt");
-        uint tokenAmount1 = (burnLP * balance1) / getTotalLiquidity();
-        uint tokenAmount2 = (burnLP * balance2) / getTotalLiquidity();
+        tokenAmount1 = (burnLP * balance1) / getTotalLiquidity();
+        tokenAmount2 = (burnLP * balance2) / getTotalLiquidity();
 
         // burn liquidity & update reserves
         _burn(address(this), burnLP); // Prevent reentrancy here by Checks Effects Interactions Pattern
