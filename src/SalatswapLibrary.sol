@@ -54,4 +54,20 @@ library SalatswapLibrary {
     ) internal pure returns (address, address) {
         return tokenA < tokenB ? (tokenA, tokenB) : (tokenB, tokenA);
     }
+
+    // get a price quote for the specified amount given the current reserves
+    function quote(
+        uint amountA,
+        uint reserveA,
+        uint reserveB
+    ) internal pure returns (uint amountB) {
+        require(amountA > 0, "SalatswapLibrary: INSUFFICIENT_AMOUNT");
+        require(
+            reserveA > 0 && reserveB > 0,
+            "SalatswapLibrary: INSUFFICIENT_LIQUIDITY"
+        );
+        amountB = (amountA * reserveB) / reserveA; // same as in Uniswap V1
+        // if the ratio between the reserves changes it will affect the quote
+        // eg reserveA > reserveB makes makes amountB smaller
+    }
 }
