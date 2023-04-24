@@ -40,7 +40,7 @@ contract SalatswapRouter {
         // transfer the tokens to the exchange and mint the liquidity
         _safeTransferFrom(tokenA, msg.sender, pair, amountA);
         _safeTransferFrom(tokenB, msg.sender, pair, amountB);
-        liquidity = SalatswapPair(pair).mint();
+        liquidity = SalatswapPair(pair).mint(to);
     }
 
     // calculate the amount of tokens to deposit that maintains ratio between reserves

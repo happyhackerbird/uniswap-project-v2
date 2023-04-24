@@ -46,7 +46,7 @@ contract SalatswapPair is ERC20 {
         token2 = addr2;
     }
 
-    function mint() public returns (uint256 liquidity) {
+    function mint(address to) public returns (uint256 liquidity) {
         // get deposited amounts
         uint256 balance1 = IERC20(token1).balanceOf(address(this));
         uint256 balance2 = IERC20(token2).balanceOf(address(this));
@@ -68,9 +68,9 @@ contract SalatswapPair is ERC20 {
         require(liquidity > 0, "Liquidity provided is too low");
 
         // mint liquidity & update reserves
-        _mint(msg.sender, liquidity);
+        _mint(to, liquidity);
         _update(balance1, balance2, reserve1, reserve2);
-        emit Minted(msg.sender, deposit1, deposit2);
+        emit Minted(to, deposit1, deposit2);
     }
 
     function burn(address to) public {

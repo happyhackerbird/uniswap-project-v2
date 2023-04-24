@@ -10,7 +10,7 @@ abstract contract TestsRatiosAndPrices is BaseSetup {
     function setUp() public virtual override {
         BaseSetup.setUp();
         vm.warp(0); // reset block timestamp
-        _initializeDex(dex, initialLiquidity, initialLiquidity);
+        _initializeDex(dex, initialLiquidity, initialLiquidity, address(this));
     }
 }
 
@@ -32,11 +32,11 @@ contract MinLiquidityTest is TestsRatiosAndPrices {
         token1.transfer(address(d1), weakToken);
         token2.transfer(address(d1), strongToken);
         // vm.expectRevert("Liquidity provided is too low");
-        // d1.mint(); // does not succeed due to MIN_LIQUIDITY
+        // d1.mint(address(this)); // does not succeed due to MIN_LIQUIDITY
 
         token1.transfer(address(d2), weakToken * weakToken); // a factor of MIN_LIQUIDITY more have to be deposited
         token2.transfer(address(d2), strongToken);
-        d2.mint();
+        d2.mint(address(this));
         assertEq(d2.getTotalLiquidity(), weakToken);
     }
 }
@@ -52,7 +52,7 @@ contract UnbalancedRatiosTest is TestsRatiosAndPrices {
         vm.startPrank(user1);
         token1.transfer(address(dex), 18 ether);
         token2.transfer(address(dex), 22 ether);
-        dex.mint();
+        dex.mint(address(user1));
         vm.stopPrank();
 
         assertEq(dex.getLiquidity(address(user1)), 18 ether); // we will only get 18 ether of liquidity
@@ -65,7 +65,7 @@ contract UnbalancedRatiosTest is TestsRatiosAndPrices {
         vm.startPrank(user1);
         token1.transfer(address(dex), 5 ether); // <=== here put in 5 ether worth of tokens
         token2.transfer(address(dex), 1 ether);
-        dex.mint(); // <=== mint 1 LP
+        dex.mint(address(user1)); // <=== mint 1 LP
 
         uint oldLiquidityUser = dex.getLiquidity(address(user1));
         uint oldToken1User = token1.balanceOf(address(user1));
@@ -105,7 +105,7 @@ contract UnbalancedRatiosTest is TestsRatiosAndPrices {
     function test_burn_DifferentRatioSameUser() public {
         token1.transfer(address(dex), 5 ether); // <=== in total we have put in 15 ether worth of tokens
         token2.transfer(address(dex), 1 ether);
-        dex.mint();
+        dex.mint(address(this));
         uint oldLiquidityUser = dex.getLiquidity(address(this));
         uint oldToken1User = token1.balanceOf(address(this));
         // (uint256 r1, uint256 r2) = dex.getReserves();

@@ -36,7 +36,7 @@ contract SalatswapLibraryTest is DSTest {
     function test_getReserves() public {
         tokenA.transfer(address(pair), 4 ether);
         tokenB.transfer(address(pair), 5 ether);
-        pair.mint();
+        pair.mint(address(this));
         (uint256 reserveA, uint256 reserveB) = SalatswapLibrary.getReserves(
             address(factory),
             address(tokenA),

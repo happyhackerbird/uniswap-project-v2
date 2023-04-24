@@ -16,7 +16,7 @@ contract SalatswapPairTest is BaseSetup {
 
     function setUp() public override {
         BaseSetup.setUp();
-        _initializeDex(dex, initialLiquidity, initialLiquidity);
+        _initializeDex(dex, initialLiquidity, initialLiquidity, address(this));
     }
 
     function test_mint_MintInitialAndMinimumLiquidity() public {
@@ -38,7 +38,7 @@ contract SalatswapPairTest is BaseSetup {
         vm.startPrank(user1);
         token1.transfer(address(dex), 20 ether);
         token2.transfer(address(dex), 20 ether);
-        dex.mint();
+        dex.mint(address(user1));
         vm.stopPrank();
 
         assertEq(dex.getLiquidity(address(user1)), 20 ether);
@@ -54,7 +54,7 @@ contract SalatswapPairTest is BaseSetup {
         // token1.transfer(address(d), 100 wei);
         // token2.transfer(address(d), 100 wei);
         // vm.expectRevert("");
-        // d.mint();
+        // d.mint(address(this));
     }
 
     function test_revert_mint_InsufficientLiquidity() public {
@@ -63,7 +63,7 @@ contract SalatswapPairTest is BaseSetup {
         token1.transfer(address(d2), 1000 wei);
         token2.transfer(address(d2), 1000 wei);
         vm.expectRevert("Liquidity provided is too low");
-        d2.mint();
+        d2.mint(address(this));
     }
 
     function test_burn_Basic() public {

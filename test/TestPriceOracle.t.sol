@@ -118,7 +118,7 @@ contract PriceOracleTest is TestsRatiosAndPrices {
         vm.warp(5);
         token1.transfer(address(dex), 5 ether);
         token2.transfer(address(dex), 5 ether);
-        dex.mint();
+        dex.mint(address(this));
         (cumulativePrice1, cumulativePrice2) = _cumulativePrice(
             cumulativePrice1,
             cumulativePrice2,

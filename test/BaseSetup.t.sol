@@ -57,11 +57,12 @@ abstract contract BaseSetup is DSTest, StdAssertions {
     function _initializeDex(
         SalatswapPair d,
         uint256 initialLiquidity1,
-        uint256 initialLiquidity2
+        uint256 initialLiquidity2,
+        address to
     ) internal {
         token1.transfer(address(d), initialLiquidity1);
         token2.transfer(address(d), initialLiquidity2);
-        dex.mint();
+        dex.mint(to);
     }
 
     function _verifyReserves(uint256 reserve1, uint256 reserve2) internal {
