@@ -70,4 +70,45 @@ library SalatswapLibrary {
         // if the ratio between the reserves changes it will affect the quote
         // eg reserveA > reserveB makes makes amountB smaller
     }
+
+    // get output amount for a swap
+    function getAmountOut(
+        uint amountIn,
+        uint reserveIn,
+        uint reserveOut
+    ) internal pure returns (uint amountOut) {
+        require(amountIn > 0, "SalatswapLibrary: INSUFFICIENT_INPUT_AMOUNT");
+        require(
+            reserveIn > 0 && reserveOut > 0,
+            "SalatswapLibrary: INSUFFICIENT_LIQUIDITY"
+        );
+        // constant product formula
+        // (x + Δx) * (y - Δy) = x * y ==> Δy = x * y / (x + Δx) - y
+        uint amountInWithFee = amountIn * 997; // 0.3 % fee
+        uint numerator = amountInWithFee * reserveOut;
+        uint denominator = reserveIn * 1000 + amountInWithFee;
+        amountOut = numerator / denominator;
+    }
+
+    // do getAmountOut iteratively along a given path
+    function getAmountsOut(
+        address factory,
+        uint amountIn,
+        address[] memory path
+    ) internal view returns (uint[] memory amounts) {
+        require(path.length >= 2, "SalatswapLibrary: INVALID_PATH");
+        // initialize the result array
+        amounts = new uint[](path.length);
+        amounts[0] = amountIn;
+        // iterate over the path
+        for (uint i; i < path.length - 1; i++) {
+            (uint reserveIn, uint reserveOut) = getReserves(
+                factory,
+                path[i],
+                path[i + 1]
+            ); // pairwise iteration
+            // get the output amount and use it as the input in the next iteration
+            amounts[i + 1] = getAmountOut(amounts[i], reserveIn, reserveOut);
+        }
+    }
 }

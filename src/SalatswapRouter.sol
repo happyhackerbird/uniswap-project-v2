@@ -12,6 +12,7 @@ contract SalatswapRouter {
         factory = SalatswapFactory(factoryAddress);
     }
 
+    // ---------------------------------- LIQUIDITY ---------------------------------- //
     function addLiquidity(
         address tokenA,
         address tokenB,
@@ -85,7 +86,7 @@ contract SalatswapRouter {
                 // since it could fluctuate further while the tx sits in the mempool
                 require(
                     amountBOptimal >= amountBMin,
-                    "UniswapV2Router: INSUFFICIENT_B_AMOUNT"
+                    "SalatswapRouter: INSUFFICIENT_B_AMOUNT"
                 );
                 (amountA, amountB) = (amountADesired, amountBOptimal);
             } else {
@@ -99,7 +100,7 @@ contract SalatswapRouter {
                 assert(amountAOptimal <= amountADesired);
                 require(
                     amountAOptimal >= amountAMin,
-                    "UniswapV2Router: INSUFFICIENT_A_AMOUNT"
+                    "SalatswapRouter: INSUFFICIENT_A_AMOUNT"
                 );
                 (amountA, amountB) = (amountAOptimal, amountBDesired);
             }
@@ -130,13 +131,76 @@ contract SalatswapRouter {
             : (amount2, amount1);
         require(
             amountA >= amountAMin,
-            "UniswapV2Router: INSUFFICIENT_A_AMOUNT"
+            "SalatswapRouter: INSUFFICIENT_A_AMOUNT"
         );
         require(
             amountB >= amountBMin,
-            "UniswapV2Router: INSUFFICIENT_B_AMOUNT"
+            "SalatswapRouter: INSUFFICIENT_B_AMOUNT"
         );
     }
+
+    // ---------------------------------- SWAPPING ---------------------------------- //
+
+    // swap an exact input amount for a minimum output amount
+    // it makes chained swaps along a specified path
+    function swapExactTokensForTokens(
+        uint256 amountIn,
+        uint256 amountOutMin,
+        address[] calldata path, //sequence of token addresses along which to swap
+        address to // final amount sent here
+    ) public returns (uint256[] memory amounts) {
+        // first get the calculated amounts along the path
+        amounts = SalatswapLibrary.getAmountsOut(
+            address(factory),
+            amountIn,
+            path
+        );
+        // check if the last output amount is big enough
+        require(
+            amounts[amounts.length - 1] >= amountOutMin,
+            "SalatswapRouter: INSUFFICIENT_OUTPUT_AMOUNT"
+        );
+        // initialize the swap by transferring the first amount (amountIn) to the first pair
+        _safeTransferFrom(
+            path[0],
+            msg.sender,
+            SalatswapLibrary.pairFor(address(factory), path[0], path[1]),
+            amounts[0]
+        );
+        // then continue to swap along the path
+        _swap(amounts, path, to);
+    }
+
+    function _swap(
+        uint256[] memory amounts,
+        address[] memory path,
+        address to
+    ) internal {
+        for (uint i; i < path.length - 1; i++) {
+            // get the pair
+            (address input, address output) = (path[i], path[i + 1]);
+            // sort tokens
+            (address token1, ) = SalatswapLibrary.sortTokens(input, output);
+            uint amountOut = amounts[i + 1];
+            (uint amount1Out, uint amount2Out) = input == token1
+                ? (uint(0), amountOut)
+                : (amountOut, uint(0));
+            // if we are not yet at the end of the path, the address to which to transfer the the tokens is the contract of the next token pair
+            address _to = i < path.length - 2
+                ? SalatswapLibrary.pairFor(
+                    address(factory),
+                    output,
+                    path[i + 2]
+                )
+                : to;
+            // call swap on the pair of the current iteration
+            SalatswapPair(
+                SalatswapLibrary.pairFor(address(factory), input, output)
+            ).swap(amount1Out, amount2Out, _to);
+        }
+    }
+
+    // ---------------------------------- HELPERS ---------------------------------- //
 
     function _safeTransferFrom(
         address tokenAddress,
