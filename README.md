@@ -11,7 +11,8 @@ Salatswap (Saladswap) is my Uniswap V2 implementation that I'm building to learn
     - [x] test cumulative prices
 - [x] Restructure tests 
 - [x] Factory contract 
-- [ ] Router and library contracts 
-- [ ] Protocol fees 
-- [ ] Flash loans 
-... and more
+- [x] Router and library contracts (more tests needed)
+
+Add: 
+Protocol fees,
+Flash loans
