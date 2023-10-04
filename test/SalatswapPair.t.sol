@@ -32,12 +32,11 @@ contract SalatswapPairTest is BaseSetup {
     }
 
     function test_mint_MintAfterInitialLiquidity() public {
-        vm.expectEmit(true, true, true, true);
-        emit Minted(address(user1), 20 ether, 20 ether);
-
         vm.startPrank(user1);
         token1.transfer(address(dex), 20 ether);
         token2.transfer(address(dex), 20 ether);
+        vm.expectEmit(true, true, true, true);
+        emit Minted(address(user1), 20 ether, 20 ether);
         dex.mint(address(user1));
         vm.stopPrank();
 
@@ -182,15 +181,16 @@ contract SalatswapPairTest is BaseSetup {
     }
 
     function test_sync() public {
+        token1.transfer(address(dex), 1 ether);
+
         vm.expectEmit(true, true, true, true);
         emit Synced(11 ether, 9.1 ether);
-        token1.transfer(address(dex), 1 ether);
         dex.swap(0, 0.9 ether, address(this));
         _verifyReserves(11 ether, 9.1 ether);
 
+        dex.transfer(address(dex), 3 ether);
         vm.expectEmit(true, true, true, true);
         emit Synced(7.7 ether, 6.37 ether);
-        dex.transfer(address(dex), 3 ether);
         dex.burn(address(this));
     }
 

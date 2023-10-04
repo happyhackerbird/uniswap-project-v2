@@ -45,13 +45,14 @@ contract UnbalancedRatiosTest is TestsRatiosAndPrices {
     event Minted(address indexed sender, uint256 deposit1, uint256 deposit2);
 
     function test_mint_DisincentivizeUnbalancedRatios() public {
-        vm.expectEmit(true, true, true, true);
-        emit Minted(address(user1), 18 ether, 22 ether);
         _verifyReserves(initialLiquidity, initialLiquidity);
 
         vm.startPrank(user1);
         token1.transfer(address(dex), 18 ether);
         token2.transfer(address(dex), 22 ether);
+
+        vm.expectEmit(true, true, true, true);
+        emit Minted(address(user1), 18 ether, 22 ether);
         dex.mint(address(user1));
         vm.stopPrank();
 
